@@ -848,7 +848,7 @@ function buildMachine() {
   addPartHoverRect(124,288,92,92,'Dividing Plate: Hole circles used for fractional indexing moves.');
   addPartHoverRect(516,272,110,66,'Tailstock: Supports the work between centers.');
   addPartHoverRect(100,330,562,58,'Table + Saddle: Feeds the work through the cutter path.');
-  addPartHoverRect(320,274,82,84,'Gear Blank: Workpiece being cut tooth-by-tooth.');
+  addPartHoverRect(320,274,82,84,'Gear Blank: Workpiece being cut tooth-by-tooth. Click to view finished piece.', true);
   addPartHoverRect(240,450,350,50,'Base: Machine foundation and vibration damping mass.');
   updatePartHoverVisibility();
 
@@ -895,10 +895,17 @@ function addCallout(parent, x, y, text, tx, ty) {
   t.textContent = text;
 }
 function addTooltip(el, text) { el.style.cursor='default'; el.addEventListener('mouseenter',e=>showTooltip(e,text)); el.addEventListener('mousemove',e=>moveTooltip(e)); el.addEventListener('mouseleave',hideTooltip); }
-function addPartHoverRect(x,y,w,h,text) {
+function addPartHoverRect(x,y,w,h,text,isClickableBlank) {
   if(!partHoverGroup) return;
   let zone = mkRect(x,y,w,h,'rgba(0,0,0,0.001)',0,partHoverGroup,{stroke:'none','pointer-events':'all'});
   addTooltip(zone, text);
+  if(isClickableBlank) {
+    zone.style.cursor = 'pointer';
+    zone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleBlankClick();
+    });
+  }
 }
 function updatePartHoverVisibility() {
   if(!partHoverGroup) return;
