@@ -135,7 +135,7 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
 .tooth-counter{text-align:center;font-size:10px;color:var(--muted);margin-bottom:6px;font-family:'Courier New',monospace}
 #tooth-counter{display:none}
 .tooth-counter span{color:var(--accent);font-weight:700}
-.spec-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(13,17,23,.9);border:1px solid var(--accent);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:11px;pointer-events:none;opacity:0;transition:opacity .5s;text-align:left}
+.spec-overlay{position:absolute;right:24px;bottom:24px;transform:none;background:rgba(13,17,23,.9);border:1px solid var(--accent);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:11px;pointer-events:none;opacity:0;transition:opacity .5s;text-align:left;max-width:190px;z-index:6}
 .spec-overlay.visible{opacity:1}
 .spec-line{display:flex;justify-content:space-between;gap:16px;padding:2px 0}
 .spec-key{color:var(--muted)}
@@ -146,6 +146,15 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
 .idx-formula{color:var(--text)}
 .done-mark{color:var(--green);margin-left:auto}
 .spec-title{font-size:10px;color:var(--accent);font-weight:700;margin-bottom:8px}
+.piece-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
+.piece-modal.visible{display:flex}
+.piece-card{width:min(560px,94vw);background:#10161f;border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 70px rgba(0,0,0,.5);overflow:hidden}
+.piece-card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(249,115,22,.12),rgba(22,27,34,.92))}
+.piece-card-header h3{font-size:13px;color:var(--text)}
+.piece-close{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px}
+.piece-view{padding:14px}
+.piece-view svg{width:100%;height:auto;display:block;background:#ffffff;border-radius:10px;border:1px solid var(--border)}
+.piece-note{padding:0 14px 14px;font-size:11px;color:var(--muted);line-height:1.5}
 </style>
 </head>
 <body>
@@ -346,6 +355,19 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
   <div class="center" id="center-panel">
     <svg id="machine-svg" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="spec-overlay" id="spec-overlay"></div>
+  </div>
+
+  <div class="piece-modal" id="piece-modal" onclick="closePieceView(event)">
+    <div class="piece-card" role="dialog" aria-modal="true" aria-labelledby="piece-title">
+      <div class="piece-card-header">
+        <h3 id="piece-title">Created Piece</h3>
+        <button class="piece-close" type="button" onclick="hideCreatedPieceView()">Close</button>
+      </div>
+      <div class="piece-view">
+        <svg id="piece-view-svg" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="piece-note" id="piece-note">Click the completed gear to inspect the finished piece.</div>
+    </div>
   </div>
 
   <!-- RIGHT -->
@@ -580,6 +602,8 @@ let cutterCurrentY = cutterBaseY;
 const arborAxisY = 152;
 const crankCenterX = 126;
 const crankCenterY = 336;
+let gearRotation = 0;
+let pieceViewRotation = 0;
 
 const liveGraph = {
   canvas: null,
@@ -790,6 +814,8 @@ function buildMachine() {
   // Blank remains on the same machining centerline for existing animation logic.
   blankGroup = mkEl('g',{id:'blankGroup',transform:'translate(360,315)'},tableGroup);
   drawBlank(blankGroup, 0);
+  blankGroup.style.cursor = 'default';
+  blankGroup.addEventListener('click', handleBlankClick);
 
   // Arbor and spindle zone moved down and connected to overarm.
   mkEl('line',{x1:248,y1:152,x2:640,y2:152,stroke:'#98a8c2',strokeWidth:4},svg);
@@ -930,6 +956,74 @@ function drawBlank(g, teethCut) {
   mkEl('path',{d:pathD,fill:'#a0aab8',stroke:'#c0c8d8',strokeWidth:1.2},g);
 }
 
+function drawFinishedGearOnly(g, teethCount) {
+  let z = teethCount || state.z;
+  let R = 64;
+  const slotPhase = Math.PI;
+  let pts = [];
+  for(let i=0;i<=360;i++) {
+    let a = (i/360)*Math.PI*2, slot=false;
+    for(let k=0;k<z;k++) {
+      let sa = (k/z)*Math.PI*2 + slotPhase;
+      let da = Math.abs(((a-sa+Math.PI*3)%(Math.PI*2))-Math.PI);
+      if(da < Math.PI/z * 0.78) { slot=true; break; }
+    }
+    let r = slot ? R*0.72 : R;
+    pts.push([Math.cos(a)*r, Math.sin(a)*r]);
+  }
+  let pathD = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ')+'Z';
+  mkEl('path',{d:pathD,fill:'#a0aab8',stroke:'#d0d6e0',strokeWidth:1.4},g);
+  mkEl('circle',{cx:0,cy:0,r:14,fill:'#0d1117',stroke:'#8b949e',strokeWidth:1.5},g);
+}
+
+function handleBlankClick() {
+  if(!state.gearComplete) return;
+  showCreatedPieceView();
+}
+
+function showCreatedPieceView() {
+  let modal = document.getElementById('piece-modal');
+  let view = document.getElementById('piece-view-svg');
+  let note = document.getElementById('piece-note');
+  view.innerHTML = '';
+  mkRect(0,0,360,240,'#ffffff',0,view);
+  let g = mkEl('g',{transform:`translate(180,120) rotate(${pieceViewRotation})`},view);
+  drawFinishedGearOnly(g, state.z);
+  note.textContent = `Finished gear: ${state.z} teeth, module ${state.m}, tooth depth ${state.dep.toFixed(2)} mm.`;
+  modal.classList.add('visible');
+}
+
+function hideCreatedPieceView() {
+  document.getElementById('piece-modal').classList.remove('visible');
+}
+
+function closePieceView(e) {
+  if(e.target && e.target.id === 'piece-modal') hideCreatedPieceView();
+}
+
+function setBlankRotation(angle) {
+  gearRotation = angle;
+  if(blankGroup) blankGroup.setAttribute('transform',`translate(360,315) rotate(${gearRotation})`);
+}
+
+function animateBlankIndex(stepAngle, cb) {
+  let start = gearRotation;
+  let end = gearRotation + stepAngle;
+  let dur = state.speed===0 ? 0 : 180 / Math.max(state.speed, 1);
+  if(dur === 0) {
+    setBlankRotation(end);
+    cb&&cb();
+    return;
+  }
+  let t0 = performance.now();
+  function tick(t) {
+    let prog = Math.min((t - t0) / dur, 1);
+    setBlankRotation(start + (end - start) * prog);
+    if(prog < 1) requestAnimationFrame(tick); else cb&&cb();
+  }
+  requestAnimationFrame(tick);
+}
+
 function spawnChips(mat) {
   let color = '#f97316';
   if(mat === 'Cast Iron') color = '#a0aab8';
@@ -1006,6 +1100,7 @@ function updateStepUI() {
   document.getElementById('pbar').style.width=(state.step/STEPS.length*100).toFixed(0)+'%';
   document.getElementById('step-label').textContent=`Step ${state.step} / ${STEPS.length}`;
   renderPartCallouts();
+  if(blankGroup) blankGroup.style.cursor = state.gearComplete ? 'pointer' : 'default';
 }
 
 async function nextStep() {
@@ -1031,7 +1126,7 @@ async function nextStep() {
   } else if(state.step===4) {
     startCutterSpin(); await new Promise(r=>setTimeout(r,400/Math.max(state.speed,1))); spawnChips(state.mat);
     await new Promise(r=>animateTableFeed(r)); await new Promise(r=>setTimeout(r,200/Math.max(state.speed,1))); stopCutterSpin();
-    state.teethCut=1; drawBlank(blankGroup, state.teethCut);
+    state.teethCut=1; setBlankRotation(360 / state.z); drawBlank(blankGroup, state.teethCut);
     await new Promise(r=>resetTableFeed(r));
     state.step=5; updateStepUI(); state.animating=false; nextBtn.textContent='Index →'; nextBtn.disabled=false;
   } else if(state.step===5) {
@@ -1043,14 +1138,15 @@ async function nextStep() {
     let rem = state.z - state.teethCut;
     for(let i=0;i<rem;i++){
       startCutterSpin(); spawnChips(state.mat); await new Promise(r=>animateTableFeed(r)); stopCutterSpin();
-      state.teethCut++; drawBlank(blankGroup, state.teethCut); document.getElementById('tc-cur').textContent=state.teethCut;
+      state.teethCut++;
+      await new Promise(r=>animateBlankIndex(360 / state.z, r));
+      drawBlank(blankGroup, state.teethCut); document.getElementById('tc-cur').textContent=state.teethCut;
       await new Promise(r=>resetTableFeed(r)); if(i<rem-1) await new Promise(r=>animateCrank(40/state.z,r));
       if(state.speed===0) await new Promise(r=>setTimeout(r,0));
     }
     document.getElementById('speed-row').style.display='none'; document.getElementById('tooth-counter').style.display='none';
     state.step=7; updateStepUI(); state.animating=false; nextBtn.textContent='Finalise →'; nextBtn.disabled=false;
   } else if(state.step===7) {
-    setInterval(()=>{ blankGroup.setAttribute('transform',`translate(360,315) rotate(${(performance.now()/16)*0.3})`); },16);
     let o = document.getElementById('spec-overlay'); o.innerHTML = `<div class="spec-title">GEAR SPECIFICATION</div>
       <div class="spec-line"><span class="spec-key">M</span><span class="spec-val">${state.m}</span></div>
       <div class="spec-line"><span class="spec-key">Teeth</span><span class="spec-val">${state.z}</span></div>
@@ -1058,6 +1154,7 @@ async function nextStep() {
       <div class="spec-line"><span class="spec-key">Cutter No.</span><span class="spec-val">${state.cutNo}</span></div>`; o.classList.add('visible');
     state.step=8; state.gearComplete=true; updateStepUI(); document.getElementById('pbar').style.width='100%';
     document.getElementById('step-label').textContent='Complete!';
+    if(blankGroup) blankGroup.style.cursor='pointer';
     state.animating=false; nextBtn.disabled=true; nextBtn.textContent='Done';
   }
 }
@@ -1066,6 +1163,7 @@ function setSpeed(s) { state.speed = s; document.querySelectorAll('.speed-btn').
 
 function resetSim() {
   stopCutterSpin(); state.step=0; state.teethCut=0; state.animating=false; state.gearComplete=false;
+  gearRotation = 0; pieceViewRotation = 0; hideCreatedPieceView();
   setLiveMode('Idle');
   liveGraph.data = Array(70).fill(0);
   liveGraph.lastLoad = 0;
