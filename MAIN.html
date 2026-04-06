@@ -593,6 +593,7 @@ function mkRect(x,y,w,h,fill,rx,parent,extra={}) { return mkEl('rect',{x,y,width
 
 let machineGroup, blankGroup, tableGroup, cutterGroup, crankGroup, chipGroup;
 let calloutGroup;
+let partHoverGroup;
 let spindleDropBody, spindleNoseCap;
 let cutterAngle = 0, cutterAnim = null, tableX = 0, tableFeedAnim = null, crankAngle = 0;
 let coolantTimer = null;
@@ -719,10 +720,6 @@ function buildMachine() {
     mkEl('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(2),fill:'#8fd0ff',opacity:(Math.random()*0.45+0.15).toFixed(2)},svg);
   }
 
-  // Back glow to pull focus toward the machine center.
-  mkEl('ellipse',{cx:390,cy:220,rx:220,ry:150,fill:'#1c3f74',opacity:'0.18'},svg);
-  mkEl('ellipse',{cx:390,cy:220,rx:150,ry:95,fill:'#5eb8ff',opacity:'0.08'},svg);
-
   // Floor plane and perspective grid.
   mkEl('polygon',{points:'0,500 800,500 800,355 0,355',fill:'#152a49'},svg);
   mkEl('polygon',{points:'0,500 800,500 800,340 0,340',fill:'#1b3b62',opacity:'0.45'},svg);
@@ -841,6 +838,20 @@ function buildMachine() {
   calloutGroup = mkEl('g',{id:'partCallouts'},svg);
   renderPartCallouts();
 
+  // Step-8 interactive hover map for part details.
+  partHoverGroup = mkEl('g',{id:'partHoverGroup'},svg);
+  addPartHoverRect(220,118,215,32,'Overarm: Supports arbor and keeps cutter alignment rigid.');
+  addPartHoverRect(338,108,138,266,'Column: Main structural body housing spindle drive.');
+  addPartHoverRect(246,146,72,58,'Spindle + Arbor Support: Transmits rotation from spindle to cutter arbor.');
+  addPartHoverRect(252,104,96,96,'Involute Gear Cutter: Form cutter that generates tooth spaces.');
+  addPartHoverRect(104,262,164,76,'Indexing Head: Rotates gear blank by 40/z per tooth.');
+  addPartHoverRect(124,288,92,92,'Dividing Plate: Hole circles used for fractional indexing moves.');
+  addPartHoverRect(516,272,110,66,'Tailstock: Supports the work between centers.');
+  addPartHoverRect(100,330,562,58,'Table + Saddle: Feeds the work through the cutter path.');
+  addPartHoverRect(320,274,82,84,'Gear Blank: Workpiece being cut tooth-by-tooth.');
+  addPartHoverRect(240,450,350,50,'Base: Machine foundation and vibration damping mass.');
+  updatePartHoverVisibility();
+
   // Coolant animation
   if(coolantTimer) clearInterval(coolantTimer);
   coolantTimer = setInterval(()=>{
@@ -884,6 +895,17 @@ function addCallout(parent, x, y, text, tx, ty) {
   t.textContent = text;
 }
 function addTooltip(el, text) { el.style.cursor='default'; el.addEventListener('mouseenter',e=>showTooltip(e,text)); el.addEventListener('mousemove',e=>moveTooltip(e)); el.addEventListener('mouseleave',hideTooltip); }
+function addPartHoverRect(x,y,w,h,text) {
+  if(!partHoverGroup) return;
+  let zone = mkRect(x,y,w,h,'rgba(0,0,0,0.001)',0,partHoverGroup,{stroke:'none','pointer-events':'all'});
+  addTooltip(zone, text);
+}
+function updatePartHoverVisibility() {
+  if(!partHoverGroup) return;
+  let on = state.step===8;
+  partHoverGroup.style.opacity = on ? '1' : '0';
+  partHoverGroup.style.pointerEvents = on ? 'all' : 'none';
+}
 const tooltip = document.getElementById('tooltip');
 function showTooltip(e,t){tooltip.textContent=t;tooltip.style.opacity=1;moveTooltip(e)}
 function moveTooltip(e){tooltip.style.left=(e.clientX+12)+'px';tooltip.style.top=(e.clientY-24)+'px'}
@@ -1100,6 +1122,7 @@ function updateStepUI() {
   document.getElementById('pbar').style.width=(state.step/STEPS.length*100).toFixed(0)+'%';
   document.getElementById('step-label').textContent=`Step ${state.step} / ${STEPS.length}`;
   renderPartCallouts();
+  updatePartHoverVisibility();
   if(blankGroup) blankGroup.style.cursor = state.gearComplete ? 'pointer' : 'default';
 }
 
