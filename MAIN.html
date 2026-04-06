@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spur Gear Milling Simulation</title>
+<title>Milling Simulation</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -759,7 +759,7 @@ function buildMachine() {
   mkRect(-2,-22,4,22,'#8aa2bc',2,crankGroup);
   mkEl('circle',{cx:0,cy:-23,r:6,fill:'#ff8b2d',stroke:'#ea580c',strokeWidth:1.5},crankGroup);
   mkEl('circle',{cx:0,cy:0,r:4,fill:'#40679a',stroke:'#9db4ce',strokeWidth:1},crankGroup);
-  mkEl('ellipse',{cx:0,cy:0,rx:8,ry:20,fill:'none',stroke:'#4e8dd3',strokeWidth:1.6,opacity:'0.8'},tableGroup);
+  mkEl('ellipse',{cx:0,cy:0,rx:8,ry:20,fill:'none',stroke:'#4e8dd3',strokeWidth:1.6,opacity:'0.8'},crankGroup);
 
   // Blank remains on the same machining centerline for existing animation logic.
   blankGroup = mkEl('g',{id:'blankGroup',transform:'translate(360,315)'},tableGroup);
