@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spur Gear Milling Simulation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#f97316;--accent2:#ea580c;--blue:#1e3a5f;
+  --green:#22c55e;--red:#ef4444;
+}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.topbar h1{font-size:13px;font-weight:600;letter-spacing:.05em;color:var(--accent)}
+.topbar span{font-size:11px;color:var(--muted)}
+.progress-bar{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);transition:width .4s ease;border-radius:2px}
+#pbar{width:0}
+.step-label{font-size:11px;color:var(--muted);font-family:'Courier New',monospace}
+.sound-btn{margin-left:auto;background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;}
+.main{display:flex;flex:1;overflow:hidden}
+
+/* LEFT PANEL (Tabs UI) */
+.left{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:12px}
+.tabs{display:flex;margin-bottom:12px;gap:4px;}
+.tab-btn{flex:1;padding:6px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:10px;cursor:pointer;font-weight:600;border-radius:4px;}
+.tab-btn.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.menu-note{font-size:10px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.menu-status{font-size:10px;color:var(--text);padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);margin-bottom:8px}
+.menu-action{width:100%;padding:7px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;cursor:pointer;font-weight:600}
+.menu-action:hover{border-color:var(--accent);color:var(--accent)}
+.menu-action:disabled{opacity:.5;cursor:not-allowed;border-color:var(--border);color:var(--muted)}
+.panel-title{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.mt-12{margin-top:12px}
+.mt-10{margin-top:10px}
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.form-group input,.form-group select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;font-size:12px;border-radius:4px;font-family:'Courier New',monospace}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+.form-group input.error{border-color:var(--red)}
+.warn{font-size:10px;color:var(--red);margin-top:3px;display:none}
+.calc-grid{margin-top:12px}
+.calc-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}
+.calc-row:last-child{border-bottom:none}
+.calc-label{font-size:10px;color:var(--muted)}
+.calc-val{font-size:11px;color:var(--accent);font-family:'Courier New',monospace;font-weight:600}
+.indexing-detail{margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px}
+.indexing-detail p{font-size:10px;color:var(--muted);line-height:1.6}
+.indexing-detail .idx-val{color:var(--green);font-family:'Courier New',monospace;font-weight:700}
+.cutter-badge{display:inline-block;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;font-family:'Courier New',monospace}
+
+/* THEORY PANEL */
+.theory-content{font-size:11px;color:var(--text);line-height:1.5;}
+.theory-content h3{font-size:11px;color:var(--accent);margin:10px 0 4px;}
+.theory-content p{color:var(--muted);margin-bottom:8px;}
+.theory-content table{width:100%;font-size:10px;border-collapse:collapse;margin-bottom:10px;}
+.theory-content th{text-align:left;border-bottom:1px solid var(--border);padding-bottom:4px;}
+.theory-content td{padding:2px 0;}
+.ta-right{text-align:right}
+.assessment-box{margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)}
+.assessment-q{margin-bottom:10px}
+.assessment-q p{color:var(--text);margin-bottom:5px;font-size:11px}
+.assessment-opt{display:block;font-size:10px;color:var(--muted);margin:2px 0;cursor:pointer}
+.assessment-actions{display:flex;gap:6px;margin-top:6px}
+.assessment-actions .menu-action{font-size:10px;padding:6px 8px}
+.assessment-result{margin-top:8px;font-size:10px;font-family:'Courier New',monospace;color:var(--text)}
+
+/* CENTER PANEL */
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#machine-svg{width:100%;height:100%;display:block}
+.chip{position:absolute;width:6px;height:6px;clip-path:polygon(50% 0%,100% 100%,0% 100%);pointer-events:none;opacity:0}
+
+/* PRINT MEDIA */
+@media print {
+  body{background:white;color:black;display:block;overflow:auto;}
+  .topbar,.left,.right,.btn,.tooltip{display:none !important;}
+  .center{width:100%;display:block;}
+  svg{filter:invert(1);max-width:100%;height:auto;}
+}
+
+/* RIGHT PANEL */
+.right{width:260px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.live-graph-panel{padding:10px 12px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(30,58,95,.28),rgba(22,27,34,.8));}
+.live-graph-title{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.live-graph-box{border:1px solid var(--border);border-radius:6px;background:#0b1220;padding:6px}
+#live-graph{display:block;width:100%;height:90px;border-radius:4px;background:#0a0f1c}
+.live-stats{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-family:'Courier New',monospace;font-size:10px;color:var(--muted)}
+.live-stats b{color:var(--accent)}
+.steps-container{flex:1;padding:12px;overflow-y:auto}
+.step-item{padding:8px;border-radius:6px;margin-bottom:6px;border:1px solid transparent;cursor:default;transition:all .2s}
+.step-item.active{border-color:var(--accent);background:rgba(249,115,22,.08)}
+.step-item.done{border-color:var(--green);background:rgba(34,197,94,.06)}
+.step-item.inactive{opacity:.45}
+.step-num{font-size:9px;color:var(--muted);font-family:'Courier New',monospace;margin-bottom:2px}
+.step-title{font-size:12px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.step-desc{font-size:10px;color:var(--muted);line-height:1.5}
+.step-icon{width:14px;height:14px;flex-shrink:0}
+.step-done-icon{color:var(--green);font-size:12px}
+
+/* QUIZ PANEL */
+#quiz-panel{display:none;padding:12px;flex:1;overflow-y:auto;}
+#quiz-panel h3{color:var(--accent);margin-bottom:8px;font-size:14px;}
+#quiz-question{font-size:12px;margin-bottom:12px;}
+
+.btn-row{padding:12px;border-top:1px solid var(--border);flex-shrink:0}
+.btn{width:100%;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:5px;cursor:pointer;transition:all .15s;font-family:system-ui,sans-serif}
+.btn.half{width:48%;display:inline-block;margin-right:2%;}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);margin-top:6px;margin-bottom:6px;}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.speed-row{display:flex;gap:4px;margin-bottom:8px}
+#speed-row{display:none}
+.speed-btn{flex:1;padding:4px;font-size:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:3px;cursor:pointer}
+.speed-btn.active{border-color:var(--accent);color:var(--accent)}
+.tooth-counter{text-align:center;font-size:10px;color:var(--muted);margin-bottom:6px;font-family:'Courier New',monospace}
+#tooth-counter{display:none}
+.tooth-counter span{color:var(--accent);font-weight:700}
+.spec-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(13,17,23,.9);border:1px solid var(--accent);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:11px;pointer-events:none;opacity:0;transition:opacity .5s;text-align:left}
+.spec-overlay.visible{opacity:1}
+.spec-line{display:flex;justify-content:space-between;gap:16px;padding:2px 0}
+.spec-key{color:var(--muted)}
+.spec-val{color:var(--accent);font-weight:700}
+.tooltip{position:fixed;background:var(--surface2);border:1px solid var(--border);padding:4px 8px;font-size:10px;border-radius:3px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;color:var(--text)}
+.hidden{display:none !important}
+.advisor-text{font-size:10px;color:var(--text)}
+.idx-formula{color:var(--text)}
+.done-mark{color:var(--green);margin-left:auto}
+.spec-title{font-size:10px;color:var(--accent);font-weight:700;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>SPUR GEAR MILLING SIMULATION</h1>
+  <span>Horizontal Machine + Dividing Head</span>
+  <div class="progress-bar"><div class="progress-fill" id="pbar"></div></div>
+  <span class="step-label" id="step-label">Step 0 / 8</span>
+  <button id="btn-sound" class="sound-btn" onclick="toggleSound()">🔇 Sound Off</button>
+</div>
+
+<div class="main">
+  <!-- LEFT -->
+  <div class="left">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('setup')" id="tab-setup">Setup</button>
+      <button class="tab-btn" onclick="switchTab('theory')" id="tab-theory">Machine Theory</button>
+    </div>
+    
+    <div id="panel-setup">
+      <div class="panel-title">Parameters</div>
+      <div class="form-group">
+        <label>Number of Teeth (z)</label>
+        <input type="number" id="inp-z" min="8" max="120" value="24" placeholder="12–120">
+        <div class="warn" id="warn-z">z &lt; 12 is non-standard</div>
+      </div>
+      <div class="form-group">
+        <label>Module (m)</label>
+        <select id="inp-m" title="Select module">
+          <option value="1">1</option>
+          <option value="1.5">1.5</option>
+          <option value="2" selected>2</option>
+          <option value="2.5">2.5</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Material</label>
+        <select id="inp-mat" title="Select material">
+          <option>Mild Steel</option>
+          <option>Cast Iron</option>
+          <option>Brass</option>
+          <option>Aluminium</option>
+        </select>
+      </div>
+
+      <div class="panel-title mt-12">Calculations</div>
+      <div class="calc-grid" id="calc-grid">
+        <div class="calc-row"><span class="calc-label">PCD</span><span class="calc-val" id="c-pcd">—</span></div>
+        <div class="calc-row"><span class="calc-label">OD</span><span class="calc-val" id="c-od">—</span></div>
+        <div class="calc-row"><span class="calc-label">Tooth Depth</span><span class="calc-val" id="c-dep">—</span></div>
+        <div class="calc-row"><span class="calc-label">Cutter No.</span><span class="calc-val" id="c-cut">—</span></div>
+      </div>
+
+      <div class="indexing-detail mt-10" id="idx-detail">
+        <div class="panel-title">Indexing</div>
+        <p id="idx-text">Enter parameters to compute indexing.</p>
+      </div>
+      
+      <div class="indexing-detail mt-10">
+        <div class="panel-title">Advisor (Cutting Data)</div>
+        <p id="advisor-text" class="advisor-text"></p>
+      </div>
+    </div>
+    
+    <div id="panel-theory" class="theory-content hidden">
+      <h3>Machine Overview</h3>
+      <p><b>Horizontal Milling Machine</b> holds and drives the involute cutter through an arbor.</p>
+      <p><b>Dividing Head</b> rotates the gear blank by a precise amount using the indexing crank.</p>
+      <p><b>Tailstock</b> supports the blank between centers for alignment and rigidity.</p>
+      <p><b>Table Feed</b> moves the work under the cutter to generate each tooth slot.</p>
+      <h3>Core Gear Formulas</h3>
+      <p><b>PCD (Pitch Circle Dia)</b> = m × z</p>
+      <p><b>OD (Outside Dia)</b> = m × (z + 2)</p>
+      <p><b>Addendum</b> = 1.0 × m</p>
+      <p><b>Dedendum</b> = 1.25 × m</p>
+      <p><b>Tooth Depth</b> = 2.25 × m</p>
+      <p><b>Indexing</b> = 40 ÷ z</p>
+      <h3>Standard Cutter Selection</h3>
+      <table>
+        <tr><th>No.</th><th class="ta-right">Teeth Range</th></tr>
+        <tr><td>1</td><td align="right">135 to rack</td></tr>
+        <tr><td>2</td><td align="right">55 to 134</td></tr>
+        <tr><td>3</td><td align="right">35 to 54</td></tr>
+        <tr><td>4</td><td align="right">26 to 34</td></tr>
+        <tr><td>5</td><td align="right">21 to 25</td></tr>
+        <tr><td>6</td><td align="right">17 to 20</td></tr>
+        <tr><td>7</td><td align="right">14 to 16</td></tr>
+        <tr><td>8</td><td align="right">12 to 13</td></tr>
+      </table>
+
+      <div class="assessment-box">
+        <h3>Assessment</h3>
+        <p>Check your understanding of machine parts and gear calculations.</p>
+        <form id="theory-assessment">
+          <div class="assessment-q">
+            <p>1) Which unit rotates the gear blank by a precise amount?</p>
+            <label class="assessment-opt"><input type="radio" name="q1" value="A"> Table Feed</label>
+            <label class="assessment-opt"><input type="radio" name="q1" value="B"> Dividing Head</label>
+            <label class="assessment-opt"><input type="radio" name="q1" value="C"> Coolant Nozzle</label>
+          </div>
+          <div class="assessment-q">
+            <p>2) Tooth depth for standard involute gears is:</p>
+            <label class="assessment-opt"><input type="radio" name="q2" value="A"> 1.25 x m</label>
+            <label class="assessment-opt"><input type="radio" name="q2" value="B"> 2.00 x m</label>
+            <label class="assessment-opt"><input type="radio" name="q2" value="C"> 2.25 x m</label>
+          </div>
+          <div class="assessment-q">
+            <p>3) PCD is computed as:</p>
+            <label class="assessment-opt"><input type="radio" name="q3" value="A"> m x z</label>
+            <label class="assessment-opt"><input type="radio" name="q3" value="B"> m + z</label>
+            <label class="assessment-opt"><input type="radio" name="q3" value="C"> z / m</label>
+          </div>
+          <div class="assessment-q">
+            <p>4) For 24 teeth, the standard involute cutter number is:</p>
+            <label class="assessment-opt"><input type="radio" name="q4" value="A"> No. 3</label>
+            <label class="assessment-opt"><input type="radio" name="q4" value="B"> No. 5</label>
+            <label class="assessment-opt"><input type="radio" name="q4" value="C"> No. 8</label>
+          </div>
+          <div class="assessment-q">
+            <p>5) Indexing movement per tooth is based on:</p>
+            <label class="assessment-opt"><input type="radio" name="q5" value="A"> 100 / z</label>
+            <label class="assessment-opt"><input type="radio" name="q5" value="B"> 20 / z</label>
+            <label class="assessment-opt"><input type="radio" name="q5" value="C"> 40 / z</label>
+          </div>
+        </form>
+        <div class="assessment-actions">
+          <button class="menu-action" type="button" onclick="gradeTheoryAssessment()">Check Score</button>
+          <button class="menu-action" type="button" onclick="resetTheoryAssessment()">Reset</button>
+        </div>
+        <div id="assessment-result" class="assessment-result">No attempt yet.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER -->
+  <div class="center" id="center-panel">
+    <svg id="machine-svg" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="spec-overlay" id="spec-overlay"></div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="live-graph-panel">
+      <div class="live-graph-title">Live Cutter Working Graph</div>
+      <div class="live-graph-box">
+        <canvas id="live-graph" width="232" height="90"></canvas>
+        <div class="live-stats">
+          <span>Load <b id="live-load">0%</b></span>
+          <span>RPM <b id="live-rpm">0</b></span>
+          <span id="live-mode">Idle</span>
+        </div>
+      </div>
+    </div>
+    <div class="steps-container" id="steps-container"></div>
+    <div class="btn-row">
+      <div class="speed-row" id="speed-row">
+        <button class="speed-btn active" data-speed="1" onclick="setSpeed(1)">1×</button>
+        <button class="speed-btn" data-speed="5" onclick="setSpeed(5)">5×</button>
+        <button class="speed-btn" data-speed="0" onclick="setSpeed(0)">Instant</button>
+      </div>
+      <div class="tooth-counter" id="tooth-counter">Tooth <span id="tc-cur">0</span> of <span id="tc-tot">0</span></div>
+      <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Begin Simulation</button>
+      <button class="btn btn-secondary" onclick="resetSim()">↺ Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ── AUDIO ──
+let audioCtx, osc, gainNode, soundOn = false;
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('btn-sound').textContent = soundOn ? '🔊 Sound On' : '🔇 Sound Off';
+  document.getElementById('btn-sound').style.color = soundOn ? 'var(--green)' : 'var(--text)';
+  if(soundOn) initAudio();
+}
+function initAudio() {
+  if(!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    gainNode = audioCtx.createGain();
+    gainNode.connect(audioCtx.destination);
+    gainNode.gain.value = 0;
+    osc = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 80;
+    osc.connect(gainNode);
+    osc.start();
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playMillSnd(play) {
+  if(!soundOn || !audioCtx) return;
+  gainNode.gain.setTargetAtTime(play ? 0.2 : 0, audioCtx.currentTime, 0.1);
+}
+function playIndexSnd() {
+  if(!soundOn || !audioCtx) return;
+  let o = audioCtx.createOscillator(); o.type='square';
+  o.frequency.setValueAtTime(800, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime+0.05);
+  let g = audioCtx.createGain(); g.gain.value = 0.5;
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.05);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime+0.1);
+}
+
+// ── TABS ──
+function switchTab(t) {
+  document.getElementById('tab-setup').className = 'tab-btn' + (t==='setup'?' active':'');
+  document.getElementById('tab-theory').className = 'tab-btn' + (t==='theory'?' active':'');
+  document.getElementById('panel-setup').classList.toggle('hidden', t!=='setup');
+  document.getElementById('panel-theory').classList.toggle('hidden', t!=='theory');
+}
+
+function gradeTheoryAssessment() {
+  let key = { q1:'B', q2:'C', q3:'A', q4:'B', q5:'C' };
+  let total = Object.keys(key).length;
+  let score = 0;
+  let attempted = 0;
+  for(let q of Object.keys(key)) {
+    let selected = document.querySelector(`input[name="${q}"]:checked`);
+    if(selected) {
+      attempted++;
+      if(selected.value === key[q]) score++;
+    }
+  }
+  let pct = Math.round((score / total) * 100);
+  let verdict = pct >= 80 ? 'Excellent' : (pct >= 60 ? 'Good' : 'Review theory and try again');
+  document.getElementById('assessment-result').textContent = `Score: ${score}/${total} (${pct}%) | Attempted: ${attempted}/${total} | ${verdict}`;
+}
+
+function resetTheoryAssessment() {
+  let f = document.getElementById('theory-assessment');
+  if(f) f.reset();
+  document.getElementById('assessment-result').textContent = 'No attempt yet.';
+}
+
+// ── STATE ──
+let state = {
+  step: 0,
+  z: 24, m: 2, mat: 'Mild Steel',
+  pcd:0, od:0, add:0, ded:0, dep:0, cutNo:0,
+  rpm:0, feedRate:0, liveMode:'Idle',
+  idxWhole:0, idxFrac:0, idxRing:0, idxHoles:0,
+  teethCut:0, animating:false, speed:1,
+  gearComplete:false
+};
+
+const STEPS = [
+  {title:'Enter Parameters', icon:'param', desc:'Set teeth count, module and material. Values auto-calculate.'},
+  {title:'Mount Gear Blank', icon:'mount', desc:'Blank is mounted between indexing head and tailstock centers.'},
+  {title:'Select Cutter', icon:'cutter', desc:'Choose the correct involute cutter number for your tooth count.'},
+  {title:'Set Depth of Cut', icon:'depth', desc:'Dial in full tooth depth = 2.25 × m. Knee raises to position.'},
+  {title:'First Pass', icon:'cut', desc:'Cutter rotates. Table feeds. First tooth slot is machined.'},
+  {title:'Index Workpiece', icon:'index', desc:'Crank handle turns by 40/z. Index pin steps through holes.'},
+  {title:'Repeat Cuts', icon:'repeat', desc:'Automated loop cuts all remaining teeth one by one.'},
+  {title:'Complete', icon:'done', desc:'All teeth machined. Gear is complete. Review specifications.'}
+];
+
+const BS_PLATES = [15,16,17,18,19,20,21,23,27,29,31,33,37,39,41,43,47,49];
+
+function bestPlate(num, den) {
+  if (den === 0) return {ring:1,holes:0};
+  let best = null, bestErr = Infinity;
+  for (let ring of BS_PLATES) {
+    let holes = Math.round(num * ring / den);
+    if (holes === 0) continue;
+    let err = Math.abs(holes/ring - num/den);
+    if (err < bestErr) { bestErr = err; best = {ring, holes}; }
+  }
+  return best || {ring:18, holes:Math.round(18*num/den)};
+}
+
+function getCutterNo(z) {
+  if (z >= 135) return 1; if (z >= 55) return 2; if (z >= 35) return 3;
+  if (z >= 26) return 4; if (z >= 21) return 5; if (z >= 17) return 6;
+  if (z >= 14) return 7; return 8;
+}
+
+function compute() {
+  let z = state.z, m = state.m;
+  state.pcd = m*z; state.od = m*(z+2);
+  state.add = m; state.ded = 1.25*m; state.dep = 2.25*m;
+  state.cutNo = getCutterNo(z);
+  let idx = 40/z; state.idxWhole = Math.floor(idx);
+  let frac = idx - state.idxWhole;
+  let num = Math.round(frac*1000), den = 1000, g = gcd(num, den);
+  num /= g; den /= g;
+  if (den === 1) { state.idxHoles = 0; state.idxRing = 1; }
+  else { let p = bestPlate(num, den); state.idxRing = p.ring; state.idxHoles = p.holes; }
+}
+
+function gcd(a,b){ return b===0?a:gcd(b,a%b); }
+
+function updateCalc() {
+  let z = parseInt(document.getElementById('inp-z').value)||0;
+  let m = parseFloat(document.getElementById('inp-m').value)||0;
+  state.z = z; state.m = m; state.mat = document.getElementById('inp-mat').value;
+  document.getElementById('warn-z').style.display = (z > 0 && z < 12) ? '' : 'none';
+
+  if (!z || !m) {
+    ['c-pcd','c-od','c-dep','c-cut'].forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  compute();
+  document.getElementById('c-pcd').textContent = state.pcd.toFixed(2)+' mm';
+  document.getElementById('c-od').textContent = state.od.toFixed(2)+' mm';
+  document.getElementById('c-dep').textContent = state.dep.toFixed(2)+' mm';
+  document.getElementById('c-cut').innerHTML = `<span class="cutter-badge">No. ${state.cutNo}</span>`;
+
+  let idxStr = state.idxWhole > 0 ? `${state.idxWhole} full turn${state.idxWhole>1?'s':''} + ` : '';
+  let holeStr = state.idxHoles > 0 ? `${state.idxHoles}/${state.idxRing} holes` : 'exact';
+  let plateStr = state.idxHoles > 0 ? `Use ${state.idxRing}-hole ring, advance ${state.idxHoles} holes` : 'Exact full turns';
+  document.getElementById('idx-text').innerHTML = `<b class="idx-formula">40 ÷ ${z} = ${(40/z).toFixed(4)} turns/tooth</b><br><br><span class="idx-val">${idxStr}${holeStr}</span><br><br>${plateStr}`;
+
+  // Advisor logic
+  let matParams = { 'Mild Steel': { v: 25, feed: 0.08 }, 'Cast Iron': { v: 20, feed: 0.1 }, 'Brass': { v: 45, feed: 0.12 }, 'Aluminium': { v: 80, feed: 0.15 } };
+  let p = matParams[state.mat] || matParams['Mild Steel']; let cd = 60 + state.m * 5; 
+  let rpm = Math.round((p.v * 1000) / (Math.PI * cd)); let feedRate = Math.round(rpm * p.feed * state.cutNo);
+  state.rpm = rpm; state.feedRate = feedRate;
+  document.getElementById('advisor-text').innerHTML = `Spindle: <b>${rpm} RPM</b><br>Table Feed: <b>${feedRate} mm/min</b><br>Speed V: <b>${p.v} m/min</b>`;
+}
+
+['inp-z','inp-m','inp-mat'].forEach(id => document.getElementById(id).addEventListener('input', updateCalc));
+
+// ── SVG MACHINE ──
+const svg = document.getElementById('machine-svg');
+function mkEl(tag, attrs, parent) {
+  let el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (let [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
+  if (parent) parent.appendChild(el); return el;
+}
+function mkRect(x,y,w,h,fill,rx,parent,extra={}) { return mkEl('rect',{x,y,width:w,height:h,fill,rx:rx||0,...extra},parent); }
+
+let machineGroup, blankGroup, tableGroup, cutterGroup, crankGroup, chipGroup;
+let spindleDropBody, spindleNoseCap;
+let cutterAngle = 0, cutterAnim = null, tableX = 0, tableFeedAnim = null, crankAngle = 0;
+let coolantTimer = null;
+const cutterBaseY = 152;
+const cutterCutY = 286;
+let cutterCurrentY = cutterBaseY;
+const arborAxisY = 152;
+
+const liveGraph = {
+  canvas: null,
+  ctx: null,
+  data: Array(70).fill(0),
+  timer: null,
+  lastTime: 0,
+  lastTableX: 0,
+  lastCrank: 0,
+  lastLoad: 0
+};
+
+function setLiveMode(mode) {
+  state.liveMode = mode;
+  document.getElementById('live-mode').textContent = mode;
+}
+
+function initLiveGraph() {
+  liveGraph.canvas = document.getElementById('live-graph');
+  liveGraph.ctx = liveGraph.canvas.getContext('2d');
+  if(liveGraph.timer) clearInterval(liveGraph.timer);
+  liveGraph.timer = setInterval(sampleLiveGraph, 120);
+  drawLiveGraph();
+}
+
+function sampleLiveGraph() {
+  let now = performance.now();
+  if(!liveGraph.lastTime) liveGraph.lastTime = now;
+  let dt = Math.max(now - liveGraph.lastTime, 1);
+  liveGraph.lastTime = now;
+
+  let dTable = Math.abs(tableX - liveGraph.lastTableX);
+  let dCrank = Math.abs(crankAngle - liveGraph.lastCrank);
+  liveGraph.lastTableX = tableX;
+  liveGraph.lastCrank = crankAngle;
+
+  let spin = cutterAnim ? 52 + Math.abs(Math.sin(cutterAngle * Math.PI / 180)) * 22 : 4;
+  let feed = Math.min(22, (dTable / dt) * 380);
+  let index = Math.min(26, (dCrank / dt) * 18);
+  let jitter = (Math.random() - 0.5) * (cutterAnim ? 8 : 2);
+  let load = Math.max(0, Math.min(100, spin + feed + index + jitter));
+  liveGraph.lastLoad = load;
+
+  liveGraph.data.push(load);
+  if(liveGraph.data.length > 70) liveGraph.data.shift();
+
+  document.getElementById('live-load').textContent = `${Math.round(load)}%`;
+  document.getElementById('live-rpm').textContent = cutterAnim ? state.rpm : 0;
+  drawLiveGraph();
+}
+
+function drawLiveGraph() {
+  let ctx = liveGraph.ctx;
+  if(!ctx) return;
+  let w = liveGraph.canvas.width;
+  let h = liveGraph.canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0a0f1c';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(139,148,158,0.25)';
+  ctx.lineWidth = 1;
+  for(let i=1;i<=4;i++) {
+    let y = (h/5)*i;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  let grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(249,115,22,0.65)');
+  grad.addColorStop(1, 'rgba(249,115,22,0.03)');
+
+  ctx.beginPath();
+  liveGraph.data.forEach((v, i) => {
+    let x = (i / (liveGraph.data.length - 1)) * w;
+    let y = h - (v / 100) * (h - 4) - 2;
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  liveGraph.data.forEach((v, i) => {
+    let x = (i / (liveGraph.data.length - 1)) * w;
+    let y = h - (v / 100) * (h - 4) - 2;
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(w - 3, h - (liveGraph.lastLoad / 100) * (h - 4) - 4, 3, 3);
+}
+
+function buildMachine() {
+  svg.innerHTML = '';
+  mkRect(0,0,800,500,'#020a18',0,svg);
+
+  // Subtle starfield to mimic the reference atmosphere.
+  for(let i=0;i<95;i++) {
+    let x = Math.random()*800;
+    let y = Math.random()*250;
+    let r = Math.random()*1.2 + 0.2;
+    mkEl('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(2),fill:'#8fd0ff',opacity:(Math.random()*0.45+0.15).toFixed(2)},svg);
+  }
+
+  // Back glow to pull focus toward the machine center.
+  mkEl('ellipse',{cx:390,cy:220,rx:220,ry:150,fill:'#1c3f74',opacity:'0.18'},svg);
+  mkEl('ellipse',{cx:390,cy:220,rx:150,ry:95,fill:'#5eb8ff',opacity:'0.08'},svg);
+
+  // Floor plane and perspective grid.
+  mkEl('polygon',{points:'0,500 800,500 800,355 0,355',fill:'#152a49'},svg);
+  mkEl('polygon',{points:'0,500 800,500 800,340 0,340',fill:'#1b3b62',opacity:'0.45'},svg);
+  for(let i=0;i<17;i++) {
+    let y = 355 + i*10;
+    mkEl('line',{x1:0,y1:y,x2:800,y2:y,stroke:'#2d5f8e',strokeWidth:'1',opacity:'0.25'},svg);
+  }
+  for(let i=0;i<22;i++) {
+    let x = i*40;
+    mkEl('line',{x1:x,y1:355,x2:x-155,y2:500,stroke:'#2d5f8e',strokeWidth:'1',opacity:'0.2'},svg);
+  }
+
+  // Machine base plinth.
+  mkEl('polygon',{points:'240,468 555,468 590,500 205,500',fill:'#0e1e37'},svg);
+  mkEl('polygon',{points:'255,450 545,450 575,468 240,468',fill:'#2a4670'},svg);
+
+  // Main machine body (column + knee + overarm) lowered to join spindle/cutter stack.
+  mkRect(338,110,128,262,'#1f315b',6,svg);
+  mkRect(352,110,88,262,'#3a6a94',4,svg);
+  mkRect(466,116,10,254,'#142347',2,svg);
+  mkRect(220,120,215,16,'#3f5d86',4,svg);
+  mkRect(222,136,208,12,'#2a4369',3,svg);
+  mkRect(415,136,8,14,'#7da8d6',2,svg);
+  mkRect(225,148,18,78,'#243a60',3,svg);
+
+  // Worktable and saddle are animated as tableGroup.
+  tableGroup = mkEl('g',{id:'tableGroup'},svg);
+  mkRect(100,340,560,30,'#304d79',5,tableGroup);
+  mkRect(98,366,564,20,'#203a60',4,tableGroup);
+  mkRect(130,330,500,14,'#5f7a99',3,tableGroup);
+  mkRect(128,344,504,8,'#3d5779',2,tableGroup);
+  mkRect(280,372,190,16,'#1b2f51',2,tableGroup);
+
+  // T-slot hints.
+  for(let i=0;i<8;i++) mkRect(150+i*58,332,6,12,'#27456c',1,tableGroup);
+
+  // Indexing head block and spindle nose.
+  mkRect(120,284,112,54,'#223d67',6,tableGroup);
+  mkRect(130,276,90,14,'#2b4b77',4,tableGroup);
+  mkEl('ellipse',{cx:175,cy:312,rx:30,ry:28,fill:'#0f2850',stroke:'#3e7fc1',strokeWidth:2},tableGroup);
+  mkEl('ellipse',{cx:175,cy:312,rx:20,ry:20,fill:'#10223f',stroke:'#2f5d96',strokeWidth:1.5},tableGroup);
+  mkEl('circle',{cx:175,cy:312,r:4,fill:'#a2b1c5'},tableGroup);
+
+  // Tailstock.
+  mkRect(515,284,110,54,'#223d67',6,tableGroup);
+  mkRect(522,276,94,14,'#2b4b77',4,tableGroup);
+  mkEl('ellipse',{cx:570,cy:312,rx:25,ry:24,fill:'#112b52',stroke:'#3a73ad',strokeWidth:2},tableGroup);
+  mkRect(545,309,36,6,'#6f9ecf',2,tableGroup);
+  mkEl('circle',{cx:570,cy:312,r:3,fill:'#a2b1c5'},tableGroup);
+  mkEl('circle',{cx:287,cy:388,r:10,fill:'none',stroke:'#7fa8d3',strokeWidth:'2',opacity:'0.6'},svg);
+  mkEl('circle',{cx:520,cy:388,r:10,fill:'none',stroke:'#7fa8d3',strokeWidth:'2',opacity:'0.6'},svg);
+  mkEl('line',{x1:287,y1:388,x2:287,y2:381,stroke:'#7fa8d3',strokeWidth:'1.2',opacity:'0.6'},svg);
+  mkEl('line',{x1:520,y1:388,x2:520,y2:381,stroke:'#7fa8d3',strokeWidth:'1.2',opacity:'0.6'},svg);
+
+  // Centers axis.
+  mkEl('line',{x1:178,y1:312,x2:546,y2:312,stroke:'#4b9cf1',strokeWidth:1.5,opacity:'0.8'},tableGroup);
+
+  // Indexing crank (animated).
+  crankGroup = mkEl('g',{id:'crankGroup',transform:'translate(136,312)'},tableGroup);
+  mkRect(-2,-22,4,22,'#8aa2bc',2,crankGroup);
+  mkEl('circle',{cx:0,cy:-23,r:6,fill:'#ff8b2d',stroke:'#ea580c',strokeWidth:1.5},crankGroup);
+  mkEl('circle',{cx:0,cy:0,r:4,fill:'#40679a',stroke:'#9db4ce',strokeWidth:1},crankGroup);
+  mkEl('ellipse',{cx:0,cy:0,rx:8,ry:20,fill:'none',stroke:'#4e8dd3',strokeWidth:1.6,opacity:'0.8'},tableGroup);
+
+  // Blank remains on the same machining centerline for existing animation logic.
+  blankGroup = mkEl('g',{id:'blankGroup',transform:'translate(360,315)'},tableGroup);
+  drawBlank(blankGroup, 0);
+
+  // Arbor and spindle zone moved down and connected to overarm.
+  mkEl('line',{x1:248,y1:152,x2:640,y2:152,stroke:'#98a8c2',strokeWidth:4},svg);
+  mkEl('line',{x1:248,y1:152,x2:640,y2:152,stroke:'#d4dce6',strokeWidth:1.5,opacity:'0.9'},svg);
+  spindleDropBody = mkRect(286,arborAxisY,28,46,'#27456f',3,svg);
+  mkRect(275,140,50,14,'#365683',3,svg);
+  mkRect(247,148,12,8,'#7fa8d3',2,svg);
+  spindleNoseCap = mkRect(286,194,28,6,'#1f385b',2,svg);
+
+  cutterCurrentY = cutterBaseY;
+  cutterGroup = mkEl('g',{id:'cutterGroup',transform:`translate(300,${cutterCurrentY})`},svg);
+  drawCutter(cutterGroup);
+  cutterGroup.querySelectorAll('circle')[0].setAttribute('fill','#b58b2d');
+  cutterGroup.querySelectorAll('circle')[0].setAttribute('stroke','#e8cf7c');
+  updateSpindleLink();
+
+  // Coolant nozzle near cutter.
+  mkEl('line',{x1:318,y1:172,x2:296,y2:194,stroke:'#4a7cb2',strokeWidth:3},svg);
+  mkEl('circle',{cx:294,cy:197,r:4,fill:'#1f3b64',stroke:'#4a7cb2',strokeWidth:1.5},svg);
+
+  chipGroup = mkEl('g',{id:'chipGroup'},svg);
+
+  // Neon component labels similar to the reference style.
+  addCallout(svg, 120, 96, 'Arbor Support', 250, 152);
+  addCallout(svg, 320, 70, 'Overarm', 385, 128);
+  addCallout(svg, 650, 146, 'Column', 444, 220);
+  addCallout(svg, 88, 286, 'Indexing Head', 176, 304);
+  addCallout(svg, 250, 414, 'Saddle', 302, 365);
+  addCallout(svg, 640, 422, 'Table (worktable)', 468, 344);
+  addCallout(svg, 628, 324, 'Gear Blank', 360, 315);
+  addCallout(svg, 642, 278, 'Involute Gear Cutter', 300, 152);
+  addCallout(svg, 640, 216, 'Spindle', 287, 170);
+  addCallout(svg, 78, 430, 'Knee', 286, 388);
+  addCallout(svg, 390, 486, 'Base', 300, 470);
+
+  // Coolant animation
+  if(coolantTimer) clearInterval(coolantTimer);
+  coolantTimer = setInterval(()=>{
+    if(state.animating && state.step > 3 && state.step < 7) {
+      let sprayY = cutterCurrentY + 46;
+      let d = mkEl('line',{x1:294,y1:sprayY,x2:294,y2:sprayY+5,stroke:'#3b82f6',strokeWidth:1.5},svg);
+      let y=sprayY, id=setInterval(()=>{ y+=2; d.setAttribute('y1',y); d.setAttribute('y2',y+5); if(y>sprayY+35){clearInterval(id);d.remove();} },16);
+    }
+  },200);
+
+  addTooltip(tableGroup,'Table + saddle assembly');
+  addTooltip(cutterGroup,'Involute Gear Form Cutter (No. '+state.cutNo+')');
+}
+function addLabel(parent, x, y, text, fill) { let t = mkEl('text',{x,y,fill,'font-size':'9',fontFamily:'Courier New','text-anchor':'middle'},parent); t.textContent = text; }
+function addCallout(parent, x, y, text, tx, ty) {
+  let w = Math.max(72, text.length * 6.7);
+  if(typeof tx === 'number' && typeof ty === 'number') {
+    mkEl('line',{x1:x,y1:y+10,x2:tx,y2:ty,stroke:'#5be8ff',strokeWidth:'1.1',opacity:'0.75'},parent);
+    mkEl('circle',{cx:tx,cy:ty,r:2.2,fill:'#79f0ff',opacity:'0.9'},parent);
+  }
+  mkRect(x - w/2, y - 11, w, 20, '#03223a', 4, parent, {stroke:'#00dbff','stroke-width':'1.2'});
+  mkRect(x - w/2 + 2, y - 9, w - 4, 16, 'none', 3, parent, {stroke:'#77efff','stroke-opacity':'0.35','stroke-width':'1'});
+  let t = mkEl('text',{x,y:y+3,fill:'#8ef7ff','font-size':'9',fontFamily:'Courier New','font-weight':'700','text-anchor':'middle'},parent);
+  t.textContent = text;
+}
+function addTooltip(el, text) { el.style.cursor='default'; el.addEventListener('mouseenter',e=>showTooltip(e,text)); el.addEventListener('mousemove',e=>moveTooltip(e)); el.addEventListener('mouseleave',hideTooltip); }
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e,t){tooltip.textContent=t;tooltip.style.opacity=1;moveTooltip(e)}
+function moveTooltip(e){tooltip.style.left=(e.clientX+12)+'px';tooltip.style.top=(e.clientY-24)+'px'}
+function hideTooltip(){tooltip.style.opacity=0}
+
+function drawCutter(g) {
+  g.innerHTML = ''; let r = 35, teeth = 12;
+  mkEl('circle',{cx:0,cy:0,r:r,fill:'#243555',stroke:'#3d6b9f',strokeWidth:2},g);
+  mkEl('circle',{cx:0,cy:0,r:8,fill:'#0d1117',stroke:'#8b949e',strokeWidth:1.5},g);
+  for(let i=0;i<teeth;i++) {
+    let a = (i/teeth)*Math.PI*2;
+    let b1=a-0.18, b2=a+0.18;
+    mkEl('path',{d:`M${Math.cos(b1)*r},${Math.sin(b1)*r} L${Math.cos(a)*(r+8)},${Math.sin(a)*(r+8)} L${Math.cos(b2)*r},${Math.sin(b2)*r}`,fill:'#8b949e',stroke:'#c0c8d8',strokeWidth:.5},g);
+  }
+}
+
+function updateCutterTransform() {
+  if(!cutterGroup) return;
+  cutterGroup.setAttribute('transform',`translate(300,${cutterCurrentY}) rotate(${cutterAngle})`);
+  updateSpindleLink();
+}
+
+function updateSpindleLink() {
+  if(!spindleDropBody || !spindleNoseCap) return;
+  let targetBottom = Math.max(arborAxisY + 46, cutterCurrentY - 8);
+  let bodyHeight = targetBottom - arborAxisY;
+  spindleDropBody.setAttribute('height', bodyHeight);
+  spindleNoseCap.setAttribute('y', targetBottom - 2);
+}
+
+function setCutterY(y) {
+  cutterCurrentY = y;
+  updateCutterTransform();
+}
+
+function animateCutterTo(targetY, cb) {
+  let startY = cutterCurrentY;
+  let dur = state.speed===0 ? 0 : 650/Math.max(state.speed,1);
+  if(dur===0) { setCutterY(targetY); cb&&cb(); return; }
+  let t0 = performance.now();
+  function tick(t) {
+    let p = Math.min((t-t0)/dur,1);
+    setCutterY(startY + (targetY-startY)*p);
+    if(p<1) requestAnimationFrame(tick); else cb&&cb();
+  }
+  requestAnimationFrame(tick);
+}
+
+function drawBlank(g, teethCut) {
+  g.innerHTML = ''; let z = state.z, R = 38;
+  const slotPhase = Math.PI;
+  if(teethCut===0) {
+    mkEl('ellipse',{cx:0,cy:0,rx:R,ry:14,fill:'#8b949e',stroke:'#c0c8d8',strokeWidth:1.5},g);
+    mkEl('rect',{x:-R,y:-14,width:R*2,height:28,fill:'#8b949e'},g);
+    mkEl('ellipse',{cx:0,cy:0,rx:R,ry:14,fill:'#a0aab8',stroke:'#c0c8d8',strokeWidth:1.5},g);
+    return;
+  }
+  mkEl('ellipse',{cx:0,cy:0,rx:R,ry:12,fill:'#7a8494',stroke:'#aab0bc',strokeWidth:1.5},g);
+  mkEl('rect',{x:-R,y:-12,width:R*2,height:24,fill:'#7a8494'},g);
+  let pts = [];
+  for(let i=0;i<=360;i++) {
+    let a = (i/360)*Math.PI*2, slot=false;
+    for(let k=0;k<teethCut;k++) {
+      let sa = (k/z)*Math.PI*2 + slotPhase, da = Math.abs(((a-sa+Math.PI*3)%(Math.PI*2))-Math.PI);
+      if(da < Math.PI/z * 0.8) { slot=true; break; }
+    }
+    let r = slot ? R*0.68 : R; pts.push([Math.cos(a)*r, Math.sin(a)*r]);
+  }
+  let pathD = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ')+'Z';
+  mkEl('path',{d:pathD,fill:'#a0aab8',stroke:'#c0c8d8',strokeWidth:1.2},g);
+}
+
+function spawnChips(mat) {
+  let color = '#f97316';
+  if(mat === 'Cast Iron') color = '#a0aab8';
+  if(mat === 'Brass') color = '#eab308';
+  if(mat === 'Aluminium') color = '#e5e7eb';
+  chipGroup.innerHTML = '';
+  for(let i=0;i<6;i++) {
+    setTimeout(()=>{
+      let yStart = cutterCurrentY + 14 + Math.random()*8;
+      let chip = mkEl('polygon',{points:'0,-4 3,4 -3,4',fill:color,transform:`translate(312,${yStart})`},chipGroup);
+      let vx = (Math.random()-0.3)*3, vy = Math.random()*3+1, op = 1, x=312, y=yStart;
+      let id = setInterval(()=>{ x+=vx; y+=vy; vy+=.2; op-=.05; chip.setAttribute('transform',`translate(${x},${y}) rotate(${x*10})`); chip.setAttribute('opacity',op); if(op<=0){clearInterval(id);chip.remove()} },20);
+    },i*60);
+  }
+}
+
+function startCutterSpin() { playMillSnd(true); setLiveMode('Cutting'); if(cutterAnim) return; cutterAnim=setInterval(()=>{ cutterAngle+=4; updateCutterTransform(); },16); }
+function stopCutterSpin() { playMillSnd(false); clearInterval(cutterAnim); cutterAnim=null; setLiveMode('Idle'); }
+
+function animateTableFeed(cb) {
+  setLiveMode('Feeding');
+  let start=0, end=30, dur=state.speed===0?0:1800/state.speed, t0=performance.now();
+  if(dur===0){ setTableX(end); if(cb)cb(); return; }
+  function tick(t){ let prog=Math.min((t-t0)/dur,1); setTableX(start+(end-start)*prog); if(prog<1) requestAnimationFrame(tick); else { if(cb)cb(); } }
+  requestAnimationFrame(tick);
+}
+function resetTableFeed(cb) {
+  setLiveMode('Return');
+  let start=30, end=0, dur=state.speed===0?0:600/state.speed, t0=performance.now();
+  if(dur===0){ setTableX(end); if(cb)cb(); return; }
+  function tick(t){ let prog=Math.min((t-t0)/dur,1); setTableX(start+(end-start)*prog); if(prog<1) requestAnimationFrame(tick); else { setLiveMode('Idle'); if(cb)cb(); } }
+  requestAnimationFrame(tick);
+}
+function setTableX(x){ tableX=x; tableGroup.setAttribute('transform',`translate(${x},0)`); }
+
+function animateCrank(turns, cb) {
+  setLiveMode('Indexing');
+  let totalAngle=turns*360, dur=state.speed===0?0:Math.max(400,Math.min(1800,totalAngle*5))/state.speed;
+  if(dur===0){ crankAngle+=totalAngle; crankGroup.setAttribute('transform',`translate(136,312) rotate(${crankAngle})`); playIndexSnd(); setLiveMode('Idle'); if(cb)cb(); return; }
+  let start=crankAngle, end=crankAngle+totalAngle, t0=performance.now();
+  function tick(t){
+    let prog=Math.min((t-t0)/dur,1); crankAngle=start+(end-start)*prog;
+    crankGroup.setAttribute('transform',`translate(136,312) rotate(${crankAngle})`);
+    if(prog<1) requestAnimationFrame(tick); else { playIndexSnd(); setLiveMode('Idle'); if(cb)cb(); }
+  }
+  requestAnimationFrame(tick);
+}
+
+function animateKneeRaise(cb) {
+  let y=360, target=350, dur=state.speed===0?0:600/state.speed;
+  if(dur===0){ cb&&cb(); return; }
+  let t0=performance.now();
+  function tick(t){ let prog=Math.min((t-t0)/dur,1); tableGroup.setAttribute('transform',`translate(${tableX},${(y+(target-y)*prog)-360})`); if(prog<1) requestAnimationFrame(tick); else { tableGroup.setAttribute('transform',`translate(${tableX},0)`); cb&&cb(); } }
+  requestAnimationFrame(tick);
+}
+
+// ── UI ──
+function buildStepUI() {
+  let c = document.getElementById('steps-container'); c.innerHTML = '';
+  STEPS.forEach((s,i)=>{
+    let div = document.createElement('div'); div.className = 'step-item '+(i===0?'active':i<state.step?'done':'inactive'); div.id = 'step-'+i;
+    div.innerHTML = `<div class="step-num">STEP ${i+1} of ${STEPS.length}</div><div class="step-title">${s.title}${i<state.step?'<span class="done-mark">✓</span>':''}</div><div class="step-desc">${s.desc}</div>`;
+    c.appendChild(div);
+  });
+}
+
+function updateStepUI() {
+  STEPS.forEach((_,i)=>{
+    let el = document.getElementById('step-'+i); if(!el) return;
+    el.className='step-item '+(i===state.step?'active':i<state.step?'done':'inactive');
+    let title = el.querySelector('.step-title'); title.innerHTML = STEPS[i].title+(i<state.step?'<span class="done-mark">✓</span>':'');
+  });
+  let el=document.getElementById('step-'+state.step); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.getElementById('pbar').style.width=(state.step/STEPS.length*100).toFixed(0)+'%';
+  document.getElementById('step-label').textContent=`Step ${state.step} / ${STEPS.length}`;
+}
+
+async function nextStep() {
+  if(state.animating) return; state.animating=true;
+  let nextBtn = document.getElementById('btn-next'); nextBtn.textContent = '...'; nextBtn.disabled=true;
+
+  if(state.step===0) {
+    if(!state.z) { alert('Invalid parameters.'); state.animating=false; nextBtn.textContent='Begin Simulation'; nextBtn.disabled=false; return; }
+    compute(); state.step=1; updateStepUI();
+    document.getElementById('inp-z').disabled=true; document.getElementById('inp-m').disabled=true;
+    state.animating=false; nextBtn.textContent='Mount Blank →'; nextBtn.disabled=false;
+  } else if(state.step===1) {
+    blankGroup.setAttribute('transform','translate(360,200)');
+    await new Promise(r=>{let t0=performance.now();function tk(t){let p=Math.min((t-t0)/(600/Math.max(state.speed,1)),1);blankGroup.setAttribute('transform',`translate(360,${200+115*p})`);if(p<1)requestAnimationFrame(tk);else r();}requestAnimationFrame(tk);});
+    state.step=2; updateStepUI(); state.animating=false; nextBtn.textContent='Select Cutter →'; nextBtn.disabled=false;
+  } else if(state.step===2) {
+    for(let i=0;i<3;i++){ await new Promise(r=>setTimeout(r,150/Math.max(state.speed,1))); cutterGroup.setAttribute('opacity','.4'); await new Promise(r=>setTimeout(r,150/Math.max(state.speed,1))); cutterGroup.setAttribute('opacity','1'); }
+    state.step=3; updateStepUI(); state.animating=false; nextBtn.textContent='Set Depth →'; nextBtn.disabled=false;
+  } else if(state.step===3) {
+    await new Promise(r=>animateKneeRaise(r));
+    await new Promise(r=>animateCutterTo(cutterCutY,r));
+    state.step=4; updateStepUI(); state.animating=false; nextBtn.textContent='First Pass →'; nextBtn.disabled=false;
+  } else if(state.step===4) {
+    startCutterSpin(); await new Promise(r=>setTimeout(r,400/Math.max(state.speed,1))); spawnChips(state.mat);
+    await new Promise(r=>animateTableFeed(r)); await new Promise(r=>setTimeout(r,200/Math.max(state.speed,1))); stopCutterSpin();
+    state.teethCut=1; drawBlank(blankGroup, state.teethCut);
+    await new Promise(r=>resetTableFeed(r));
+    state.step=5; updateStepUI(); state.animating=false; nextBtn.textContent='Index →'; nextBtn.disabled=false;
+  } else if(state.step===5) {
+    await new Promise(r=>animateCrank(40/state.z,r));
+    state.step=6; updateStepUI(); document.getElementById('speed-row').style.display='flex';
+    document.getElementById('tooth-counter').style.display='block'; document.getElementById('tc-tot').textContent=state.z; document.getElementById('tc-cur').textContent=state.teethCut;
+    state.animating=false; nextBtn.textContent='Cut All Teeth →'; nextBtn.disabled=false;
+  } else if(state.step===6) {
+    let rem = state.z - state.teethCut;
+    for(let i=0;i<rem;i++){
+      startCutterSpin(); spawnChips(state.mat); await new Promise(r=>animateTableFeed(r)); stopCutterSpin();
+      state.teethCut++; drawBlank(blankGroup, state.teethCut); document.getElementById('tc-cur').textContent=state.teethCut;
+      await new Promise(r=>resetTableFeed(r)); if(i<rem-1) await new Promise(r=>animateCrank(40/state.z,r));
+      if(state.speed===0) await new Promise(r=>setTimeout(r,0));
+    }
+    document.getElementById('speed-row').style.display='none'; document.getElementById('tooth-counter').style.display='none';
+    state.step=7; updateStepUI(); state.animating=false; nextBtn.textContent='Finalise →'; nextBtn.disabled=false;
+  } else if(state.step===7) {
+    setInterval(()=>{ blankGroup.setAttribute('transform',`translate(360,315) rotate(${(performance.now()/16)*0.3})`); },16);
+    let o = document.getElementById('spec-overlay'); o.innerHTML = `<div class="spec-title">GEAR SPECIFICATION</div>
+      <div class="spec-line"><span class="spec-key">M</span><span class="spec-val">${state.m}</span></div>
+      <div class="spec-line"><span class="spec-key">Teeth</span><span class="spec-val">${state.z}</span></div>
+      <div class="spec-line"><span class="spec-key">Depth</span><span class="spec-val">${state.dep.toFixed(2)} mm</span></div>
+      <div class="spec-line"><span class="spec-key">Cutter No.</span><span class="spec-val">${state.cutNo}</span></div>`; o.classList.add('visible');
+    state.step=8; state.gearComplete=true; updateStepUI(); document.getElementById('pbar').style.width='100%';
+    document.getElementById('step-label').textContent='Complete!';
+    state.animating=false; nextBtn.disabled=true; nextBtn.textContent='Done';
+  }
+}
+
+function setSpeed(s) { state.speed = s; document.querySelectorAll('.speed-btn').forEach(b=>{ b.classList.toggle('active', parseInt(b.dataset.speed)===s || (s===0&&b.dataset.speed==='0')); }); }
+
+function resetSim() {
+  stopCutterSpin(); state.step=0; state.teethCut=0; state.animating=false; state.gearComplete=false;
+  setLiveMode('Idle');
+  liveGraph.data = Array(70).fill(0);
+  liveGraph.lastLoad = 0;
+  document.getElementById('live-load').textContent = '0%';
+  document.getElementById('live-rpm').textContent = '0';
+  drawLiveGraph();
+  document.getElementById('inp-z').disabled=false; document.getElementById('inp-m').disabled=false;
+  document.getElementById('speed-row').style.display='none'; document.getElementById('tooth-counter').style.display='none';
+  document.getElementById('spec-overlay').classList.remove('visible');
+  document.getElementById('pbar').style.width='0%'; document.getElementById('step-label').textContent='Step 0 / 8';
+  let btnN = document.getElementById('btn-next'); btnN.textContent='Begin Simulation'; btnN.onclick=nextStep; btnN.disabled=false;
+  buildMachine(); buildStepUI(); updateCalc();
+}
+
+updateCalc(); buildMachine(); buildStepUI(); initLiveGraph();
+</script>
+</body>
+</html>
