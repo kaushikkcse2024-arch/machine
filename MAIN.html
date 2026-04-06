@@ -948,12 +948,12 @@ function drawBlank(g, teethCut) {
     let a = (i/360)*Math.PI*2, slot=false;
     for(let k=0;k<teethCut;k++) {
       let sa = (k/z)*Math.PI*2 + slotPhase, da = Math.abs(((a-sa+Math.PI*3)%(Math.PI*2))-Math.PI);
-      if(da < Math.PI/z * 0.8) { slot=true; break; }
+      if(da < Math.PI/z * 0.52) { slot=true; break; }
     }
-    let r = slot ? R*0.68 : R; pts.push([Math.cos(a)*r, Math.sin(a)*r]);
+    let r = slot ? R*0.86 : R; pts.push([Math.cos(a)*r, Math.sin(a)*r]);
   }
   let pathD = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ')+'Z';
-  mkEl('path',{d:pathD,fill:'#a0aab8',stroke:'#c0c8d8',strokeWidth:1.2},g);
+  mkEl('path',{d:pathD,fill:'#a0aab8',stroke:'#cfd5df',strokeWidth:1.25},g);
 }
 
 function drawFinishedGearOnly(g, teethCount) {
@@ -966,9 +966,9 @@ function drawFinishedGearOnly(g, teethCount) {
     for(let k=0;k<z;k++) {
       let sa = (k/z)*Math.PI*2 + slotPhase;
       let da = Math.abs(((a-sa+Math.PI*3)%(Math.PI*2))-Math.PI);
-      if(da < Math.PI/z * 0.78) { slot=true; break; }
+      if(da < Math.PI/z * 0.48) { slot=true; break; }
     }
-    let r = slot ? R*0.72 : R;
+    let r = slot ? R*0.88 : R;
     pts.push([Math.cos(a)*r, Math.sin(a)*r]);
   }
   let pathD = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' ')+'Z';
@@ -1126,11 +1126,12 @@ async function nextStep() {
   } else if(state.step===4) {
     startCutterSpin(); await new Promise(r=>setTimeout(r,400/Math.max(state.speed,1))); spawnChips(state.mat);
     await new Promise(r=>animateTableFeed(r)); await new Promise(r=>setTimeout(r,200/Math.max(state.speed,1))); stopCutterSpin();
-    state.teethCut=1; setBlankRotation(360 / state.z); drawBlank(blankGroup, state.teethCut);
+    state.teethCut=1; setBlankRotation(0); drawBlank(blankGroup, state.teethCut);
     await new Promise(r=>resetTableFeed(r));
     state.step=5; updateStepUI(); state.animating=false; nextBtn.textContent='Index →'; nextBtn.disabled=false;
   } else if(state.step===5) {
     await new Promise(r=>animateCrank(40/state.z,r));
+    await new Promise(r=>animateBlankIndex(-360 / state.z, r));
     state.step=6; updateStepUI(); document.getElementById('speed-row').style.display='flex';
     document.getElementById('tooth-counter').style.display='block'; document.getElementById('tc-tot').textContent=state.z; document.getElementById('tc-cur').textContent=state.teethCut;
     state.animating=false; nextBtn.textContent='Cut All Teeth →'; nextBtn.disabled=false;
@@ -1139,9 +1140,12 @@ async function nextStep() {
     for(let i=0;i<rem;i++){
       startCutterSpin(); spawnChips(state.mat); await new Promise(r=>animateTableFeed(r)); stopCutterSpin();
       state.teethCut++;
-      await new Promise(r=>animateBlankIndex(360 / state.z, r));
       drawBlank(blankGroup, state.teethCut); document.getElementById('tc-cur').textContent=state.teethCut;
-      await new Promise(r=>resetTableFeed(r)); if(i<rem-1) await new Promise(r=>animateCrank(40/state.z,r));
+      await new Promise(r=>resetTableFeed(r));
+      if(i<rem-1) {
+        await new Promise(r=>animateCrank(40/state.z,r));
+        await new Promise(r=>animateBlankIndex(-360 / state.z, r));
+      }
       if(state.speed===0) await new Promise(r=>setTimeout(r,0));
     }
     document.getElementById('speed-row').style.display='none'; document.getElementById('tooth-counter').style.display='none';
