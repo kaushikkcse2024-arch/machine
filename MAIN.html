@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;
+  --bg:#ffffff;--surface:#161b22;--surface2:#21262d;
   --border:#30363d;--text:#e6edf3;--muted:#8b949e;
   --accent:#f97316;--accent2:#ea580c;--blue:#1e3a5f;
   --green:#22c55e;--red:#ef4444;
@@ -67,6 +67,21 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
 .assessment-actions{display:flex;gap:6px;margin-top:6px}
 .assessment-actions .menu-action{font-size:10px;padding:6px 8px}
 .assessment-result{margin-top:8px;font-size:10px;font-family:'Courier New',monospace;color:var(--text)}
+.calc-menu{display:flex;gap:6px;margin:10px 0 8px}
+.calc-menu-btn{flex:1;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:10px;cursor:pointer;font-weight:700;border-radius:5px}
+.calc-menu-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.calc-panel{display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px}
+.calc-panel.active{display:block}
+.calc-panel h4{font-size:11px;color:var(--accent);margin-bottom:6px}
+.calc-panel .formula{font-family:'Courier New',monospace;color:var(--text);font-size:11px;margin-bottom:7px}
+.calc-panel ul{margin-left:16px}
+.calc-panel li{font-size:10px;color:var(--muted);line-height:1.6}
+.mrr-box{margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px}
+.mrr-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.mrr-row label{font-size:11px;color:var(--muted);min-width:118px}
+.mrr-row input{width:100%;background:#0f141d;border:1px solid var(--border);color:var(--text);padding:6px 8px;font-size:12px;border-radius:4px;font-family:'Courier New',monospace}
+.mrr-formula{font-family:'Courier New',monospace;font-size:11px;color:var(--text);margin-bottom:8px}
+.mrr-result{margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:5px;background:#0f141d;font-family:'Courier New',monospace;font-size:11px;color:var(--accent);font-weight:700}
 
 /* CENTER PANEL */
 .center{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
@@ -149,6 +164,7 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('setup')" id="tab-setup">Setup</button>
       <button class="tab-btn" onclick="switchTab('theory')" id="tab-theory">Machine Theory</button>
+      <button class="tab-btn" onclick="switchTab('mrr')" id="tab-mrr">MRR Calc</button>
     </div>
     
     <div id="panel-setup">
@@ -204,13 +220,48 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
       <p><b>Dividing Head</b> rotates the gear blank by a precise amount using the indexing crank.</p>
       <p><b>Tailstock</b> supports the blank between centers for alignment and rigidity.</p>
       <p><b>Table Feed</b> moves the work under the cutter to generate each tooth slot.</p>
-      <h3>Core Gear Formulas</h3>
-      <p><b>PCD (Pitch Circle Dia)</b> = m × z</p>
-      <p><b>OD (Outside Dia)</b> = m × (z + 2)</p>
-      <p><b>Addendum</b> = 1.0 × m</p>
-      <p><b>Dedendum</b> = 1.25 × m</p>
-      <p><b>Tooth Depth</b> = 2.25 × m</p>
-      <p><b>Indexing</b> = 40 ÷ z</p>
+
+      <h3>Calculation Menu</h3>
+      <div class="calc-menu">
+        <button class="calc-menu-btn active" id="calc-gear-btn" onclick="switchCalcMenu('gear')">Gear</button>
+        <button class="calc-menu-btn" id="calc-index-btn" onclick="switchCalcMenu('indexing')">Indexing</button>
+        <button class="calc-menu-btn" id="calc-milling-btn" onclick="switchCalcMenu('milling')">Milling</button>
+      </div>
+
+      <div class="calc-panel active" id="calc-gear-panel">
+        <h4>1. Gear Geometry</h4>
+        <div class="formula">PCD = m x z</div>
+        <div class="formula">OD = m x (z + 2)</div>
+        <div class="formula">Addendum = 1.0 x m</div>
+        <div class="formula">Dedendum = 1.25 x m</div>
+        <div class="formula">Tooth Depth = 2.25 x m</div>
+        <ul>
+          <li>m = module (mm)</li>
+          <li>z = number of teeth</li>
+        </ul>
+      </div>
+
+      <div class="calc-panel" id="calc-indexing-panel">
+        <h4>2. Plain Indexing</h4>
+        <div class="formula">Crank turns per tooth = 40 / z</div>
+        <div class="formula">Fractional turns use index plate holes</div>
+        <ul>
+          <li>40 = worm ratio of standard dividing head</li>
+          <li>z = required gear teeth</li>
+          <li>Example for z = 24: 40/24 = 1 + 10/15 turns</li>
+        </ul>
+      </div>
+
+      <div class="calc-panel" id="calc-milling-panel">
+        <h4>3. Milling (Material Removal Rate)</h4>
+        <div class="formula">MRR = w x d x v</div>
+        <ul>
+          <li>w = width of cut (mm)</li>
+          <li>d = depth of cut (mm)</li>
+          <li>v = feed rate (mm/min)</li>
+        </ul>
+      </div>
+
       <h3>Standard Cutter Selection</h3>
       <table>
         <tr><th>No.</th><th class="ta-right">Teeth Range</th></tr>
@@ -266,6 +317,28 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;hei
         <div id="assessment-result" class="assessment-result">No attempt yet.</div>
       </div>
     </div>
+
+      <div id="panel-mrr" class="theory-content hidden">
+        <h3>MRR Calculation Menu</h3>
+        <p>Calculate material removal rate for milling using:</p>
+        <div class="mrr-formula"><b>MRR = w x d x v</b></div>
+        <div class="mrr-box">
+          <div class="mrr-row">
+            <label for="inp-mrr-w">w: Width (mm)</label>
+            <input id="inp-mrr-w" type="number" min="0" step="0.01" value="20">
+          </div>
+          <div class="mrr-row">
+            <label for="inp-mrr-d">d: Depth (mm)</label>
+            <input id="inp-mrr-d" type="number" min="0" step="0.01" value="2">
+          </div>
+          <div class="mrr-row">
+            <label for="inp-mrr-v">v: Feed (mm/min)</label>
+            <input id="inp-mrr-v" type="number" min="0" step="0.01" value="46">
+          </div>
+          <button class="menu-action" type="button" onclick="updateMRR()">Calculate MRR</button>
+          <div id="mrr-result" class="mrr-result">MRR = 1840.00 mm³/min</div>
+        </div>
+      </div>
 
   </div>
 
@@ -346,8 +419,10 @@ function playIndexSnd() {
 function switchTab(t) {
   document.getElementById('tab-setup').className = 'tab-btn' + (t==='setup'?' active':'');
   document.getElementById('tab-theory').className = 'tab-btn' + (t==='theory'?' active':'');
+  document.getElementById('tab-mrr').className = 'tab-btn' + (t==='mrr'?' active':'');
   document.getElementById('panel-setup').classList.toggle('hidden', t!=='setup');
   document.getElementById('panel-theory').classList.toggle('hidden', t!=='theory');
+  document.getElementById('panel-mrr').classList.toggle('hidden', t!=='mrr');
 }
 
 function gradeTheoryAssessment() {
@@ -371,6 +446,29 @@ function resetTheoryAssessment() {
   let f = document.getElementById('theory-assessment');
   if(f) f.reset();
   document.getElementById('assessment-result').textContent = 'No attempt yet.';
+}
+
+function switchCalcMenu(mode) {
+  const btns = {
+    gear: document.getElementById('calc-gear-btn'),
+    indexing: document.getElementById('calc-index-btn'),
+    milling: document.getElementById('calc-milling-btn')
+  };
+  const panels = {
+    gear: document.getElementById('calc-gear-panel'),
+    indexing: document.getElementById('calc-indexing-panel'),
+    milling: document.getElementById('calc-milling-panel')
+  };
+  Object.keys(btns).forEach(k => btns[k].classList.toggle('active', k===mode));
+  Object.keys(panels).forEach(k => panels[k].classList.toggle('active', k===mode));
+}
+
+function updateMRR() {
+  let w = parseFloat(document.getElementById('inp-mrr-w').value) || 0;
+  let d = parseFloat(document.getElementById('inp-mrr-d').value) || 0;
+  let v = parseFloat(document.getElementById('inp-mrr-v').value) || 0;
+  let mrr = w * d * v;
+  document.getElementById('mrr-result').textContent = `MRR = ${mrr.toFixed(2)} mm³/min`;
 }
 
 // ── STATE ──
@@ -460,6 +558,7 @@ function updateCalc() {
 }
 
 ['inp-z','inp-m','inp-mat'].forEach(id => document.getElementById(id).addEventListener('input', updateCalc));
+['inp-mrr-w','inp-mrr-d','inp-mrr-v'].forEach(id => document.getElementById(id).addEventListener('input', updateMRR));
 
 // ── SVG MACHINE ──
 const svg = document.getElementById('machine-svg');
@@ -471,6 +570,7 @@ function mkEl(tag, attrs, parent) {
 function mkRect(x,y,w,h,fill,rx,parent,extra={}) { return mkEl('rect',{x,y,width:w,height:h,fill,rx:rx||0,...extra},parent); }
 
 let machineGroup, blankGroup, tableGroup, cutterGroup, crankGroup, chipGroup;
+let calloutGroup;
 let spindleDropBody, spindleNoseCap;
 let cutterAngle = 0, cutterAnim = null, tableX = 0, tableFeedAnim = null, crankAngle = 0;
 let coolantTimer = null;
@@ -583,7 +683,7 @@ function drawLiveGraph() {
 
 function buildMachine() {
   svg.innerHTML = '';
-  mkRect(0,0,800,500,'#020a18',0,svg);
+  mkRect(0,0,800,500,'#ffffff',0,svg);
 
   // Subtle starfield to mimic the reference atmosphere.
   for(let i=0;i<95;i++) {
@@ -686,18 +786,8 @@ function buildMachine() {
 
   chipGroup = mkEl('g',{id:'chipGroup'},svg);
 
-  // Neon component labels similar to the reference style.
-  addCallout(svg, 120, 96, 'Arbor Support', 250, 152);
-  addCallout(svg, 320, 70, 'Overarm', 385, 128);
-  addCallout(svg, 650, 146, 'Column', 444, 220);
-  addCallout(svg, 88, 286, 'Indexing Head', 176, 304);
-  addCallout(svg, 250, 414, 'Saddle', 302, 365);
-  addCallout(svg, 640, 422, 'Table (worktable)', 468, 344);
-  addCallout(svg, 628, 324, 'Gear Blank', 360, 315);
-  addCallout(svg, 642, 278, 'Involute Gear Cutter', 300, 152);
-  addCallout(svg, 640, 216, 'Spindle', 287, 170);
-  addCallout(svg, 78, 430, 'Knee', 286, 388);
-  addCallout(svg, 390, 486, 'Base', 300, 470);
+  calloutGroup = mkEl('g',{id:'partCallouts'},svg);
+  renderPartCallouts();
 
   // Coolant animation
   if(coolantTimer) clearInterval(coolantTimer);
@@ -713,6 +803,23 @@ function buildMachine() {
   addTooltip(cutterGroup,'Involute Gear Form Cutter (No. '+state.cutNo+')');
 }
 function addLabel(parent, x, y, text, fill) { let t = mkEl('text',{x,y,fill,'font-size':'9',fontFamily:'Courier New','text-anchor':'middle'},parent); t.textContent = text; }
+function renderPartCallouts() {
+  if(!calloutGroup) return;
+  calloutGroup.innerHTML = '';
+  // Show part labels only in Step 1 (Enter Parameters).
+  if(state.step !== 0) return;
+  addCallout(calloutGroup, 120, 96, 'Arbor Support', 250, 152);
+  addCallout(calloutGroup, 320, 70, 'Overarm', 385, 128);
+  addCallout(calloutGroup, 650, 146, 'Column', 444, 220);
+  addCallout(calloutGroup, 88, 286, 'Indexing Head', 176, 304);
+  addCallout(calloutGroup, 250, 414, 'Saddle', 302, 365);
+  addCallout(calloutGroup, 640, 422, 'Table (worktable)', 468, 344);
+  addCallout(calloutGroup, 628, 324, 'Gear Blank', 360, 315);
+  addCallout(calloutGroup, 642, 278, 'Involute Gear Cutter', 300, 152);
+  addCallout(calloutGroup, 640, 216, 'Spindle', 287, 170);
+  addCallout(calloutGroup, 78, 430, 'Knee', 286, 388);
+  addCallout(calloutGroup, 390, 486, 'Base', 300, 470);
+}
 function addCallout(parent, x, y, text, tx, ty) {
   let w = Math.max(72, text.length * 6.7);
   if(typeof tx === 'number' && typeof ty === 'number') {
@@ -872,6 +979,7 @@ function updateStepUI() {
   let el=document.getElementById('step-'+state.step); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
   document.getElementById('pbar').style.width=(state.step/STEPS.length*100).toFixed(0)+'%';
   document.getElementById('step-label').textContent=`Step ${state.step} / ${STEPS.length}`;
+  renderPartCallouts();
 }
 
 async function nextStep() {
@@ -946,7 +1054,7 @@ function resetSim() {
   buildMachine(); buildStepUI(); updateCalc();
 }
 
-updateCalc(); buildMachine(); buildStepUI(); initLiveGraph();
+updateCalc(); updateMRR(); buildMachine(); buildStepUI(); initLiveGraph();
 </script>
 </body>
 </html>
